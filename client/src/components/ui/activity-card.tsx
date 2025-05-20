@@ -40,7 +40,7 @@ export function ActivityCard({ activity, timeOfDay, isLast }: ActivityCardProps)
   };
   
   return (
-    <div className={`bg-white border border-gray-300 rounded-xl p-6 ${isLast ? '' : 'mb-6'} hover:border-${timeColor} transition-colors`}>
+    <div className={`bg-white border border-gray-300 rounded-xl p-6 ${isLast ? '' : 'mb-6'} transition-colors`}>
       <div className="flex flex-col md:flex-row">
         <div className="w-full md:w-1/3 h-48 rounded-lg overflow-hidden mb-4 md:mb-0 md:mr-6">
           <img 
@@ -52,7 +52,10 @@ export function ActivityCard({ activity, timeOfDay, isLast }: ActivityCardProps)
         <div className="w-full md:w-2/3">
           <div className="flex justify-between items-start mb-3">
             <div>
-              <span className={`bg-${timeColor}/20 text-${timeColor} px-3 py-1 rounded-full text-sm font-medium mb-2 inline-block`}>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium mb-2 inline-block
+                ${timeOfDay === "morning" ? "bg-accent/20 text-accent" : 
+                timeOfDay === "afternoon" ? "bg-primary/20 text-primary" : 
+                "bg-[#A78BFA]/20 text-[#A78BFA]"}`}>
                 {activity.time}
               </span>
               <h4 className="text-xl font-heading font-bold">{activity.title}</h4>

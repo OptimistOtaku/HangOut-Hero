@@ -1,12 +1,10 @@
-import { useNavigate } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 export default function Home() {
-  const navigate = useNavigate();
-
   const handleStartPlanning = () => {
-    navigate("/questionnaire");
+    window.location.href = "/questionnaire";
   };
 
   return (
