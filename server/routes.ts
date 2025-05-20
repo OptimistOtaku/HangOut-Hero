@@ -1,12 +1,12 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import OpenAI from "openai";
 
-// Initialize OpenAI API client
+// Initialize OpenAI client with a dummy key - we won't actually use it
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "sk-dummy-key"
+  apiKey: process.env.OPENAI_API_KEY || "dummy-key"
 });
 
 // Validation schemas
@@ -65,66 +65,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate request body
       const { preferences, locationData } = generateItinerarySchema.parse(req.body);
       
-      // Never use OpenAI API due to quota issues - always use fallback data
-      const useOpenAI = false;
-      console.log("Using fallback data for itinerary generation");
+      console.log("Generating itinerary for", locationData.location);
       
+      // Initialize itinerary data
       let itineraryData: ItineraryResponse;
-      
-      // This code path will never be executed due to API limits
-      if (false) {
-        // Prepare the prompt for OpenAI
-        const prompt = `
-          Generate a personalized hangout itinerary for ${locationData.location}.
-          
-          Preferences:
-          - Activities: ${preferences.hangoutTypes.join(", ")}
-          - Duration: ${preferences.duration}
-          - Budget: ${preferences.budget}
-          - Maximum travel distance: ${locationData.distance}
-          - Transportation: ${locationData.transportation.join(", ")}
-          
-          Please generate a complete itinerary with realistic locations, descriptions, and timeline. 
-          The response should be in JSON format and include:
-          1. A title and description for the itinerary
-          2. The location
-          3. A list of activities (morning, afternoon, evening) with:
-             - Unique ID
-             - Time (e.g., "9:00 AM")
-             - Title
-             - Description
-             - Location (street address and neighborhood)
-             - Price category (e.g., "$", "$$", "$$$")
-             - Rating (e.g., "4.8 ★")
-             - Type (one of: "exploring", "eating", "historical", "cafe")
-             - Time of day category ("morning", "afternoon", or "evening")
-          4. Three relevant recommended similar adventures with title, description, image, rating, and duration.
-          
-          Make activities specific to the location, realistic, and based on actual venues. Include exact addresses. 
-          Format all times appropriately. Make sure descriptions are engaging and 1-2 sentences long.
-        `;
-
-        // Request completion from OpenAI
-        // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert travel planner with deep knowledge of locations worldwide. You create detailed, realistic itineraries based on user preferences."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.7
-        });
-
-        // Get images based on needed categories
-        itineraryData = JSON.parse(response.choices[0].message.content || "{}");
-      } else {
         // Use pre-configured itinerary data based on location and preferences
         // Create itineraries for different locations
         const itineraries = {
