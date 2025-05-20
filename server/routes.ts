@@ -65,13 +65,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate request body
       const { preferences, locationData } = generateItinerarySchema.parse(req.body);
       
-      // Always use fallback data for now due to API limits
-      let useOpenAI = false;
+      // Never use OpenAI API due to quota issues - always use fallback data
+      const useOpenAI = false;
       console.log("Using fallback data for itinerary generation");
       
       let itineraryData: ItineraryResponse;
       
-      if (useOpenAI) {
+      // This code path will never be executed due to API limits
+      if (false) {
         // Prepare the prompt for OpenAI
         const prompt = `
           Generate a personalized hangout itinerary for ${locationData.location}.
@@ -550,7 +551,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         // Select the appropriate itinerary based on location or default to Delhi
-        itineraryData = itineraries[locationData.location] || itineraries["Delhi"];
+        let locationToUse = "Delhi";
+        
+        if (locationData.location.toLowerCase().includes("delhi")) {
+          locationToUse = "Delhi";
+        } else if (locationData.location.toLowerCase().includes("noida")) {
+          locationToUse = "Noida";
+        } else if (locationData.location.toLowerCase().includes("jaipur")) {
+          locationToUse = "Jaipur";
+        } else if (locationData.location.toLowerCase().includes("mussoorie")) {
+          locationToUse = "Mussoorie";
+        }
+        
+        itineraryData = itineraries[locationToUse];
       }
       
       // Save the generated itinerary to storage
