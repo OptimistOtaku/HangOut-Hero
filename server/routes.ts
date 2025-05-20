@@ -2,6 +2,12 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
+import OpenAI from "openai";
+
+// Initialize OpenAI API client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 // Validation schemas
 const preferenceSchema = z.object({
@@ -60,6 +66,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { preferences, locationData } = generateItinerarySchema.parse(req.body);
       
       console.log("Generating itinerary for", locationData.location);
+      
+      // Initialize itinerary data
+      let itineraryData: ItineraryResponse;
       
       // Create itineraries for different locations
       const itineraries: Record<string, ItineraryResponse> = {
