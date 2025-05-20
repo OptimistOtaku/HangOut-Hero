@@ -15,7 +15,7 @@ interface LocationOption {
 
 export default function Location() {
   const [locationData, setLocationData] = useState<LocationFormData>({
-    location: "San Francisco, CA",
+    location: "Delhi",
     distance: "Moderate (up to 5 miles)",
     transportation: ["Walking", "Public Transit"]
   });
@@ -24,23 +24,23 @@ export default function Location() {
   
   const [locations, setLocations] = useState<LocationOption[]>([
     { 
-      name: "New York", 
-      image: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
-      selected: false 
-    },
-    { 
-      name: "San Francisco", 
-      image: "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
+      name: "Delhi", 
+      image: "https://images.unsplash.com/photo-1587474260584-136574528ed5?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
       selected: true 
     },
     { 
-      name: "Chicago", 
-      image: "https://images.unsplash.com/photo-1494522855154-9297ac14b55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
+      name: "Noida", 
+      image: "https://images.unsplash.com/photo-1601961405399-801fb1936fc3?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
       selected: false 
     },
     { 
-      name: "Los Angeles", 
-      image: "https://images.unsplash.com/photo-1580655653885-65763b2597d0?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
+      name: "Jaipur", 
+      image: "https://images.unsplash.com/photo-1599661046289-e31897846e41?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
+      selected: false 
+    },
+    { 
+      name: "Mussoorie", 
+      image: "https://images.unsplash.com/photo-1591017683656-4322564dde48?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
       selected: false 
     }
   ]);

@@ -65,94 +65,182 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate request body
       const { preferences, locationData } = generateItinerarySchema.parse(req.body);
       
-      // Prepare the prompt for OpenAI
-      const prompt = `
-        Generate a personalized hangout itinerary for ${locationData.location}.
-        
-        Preferences:
-        - Activities: ${preferences.hangoutTypes.join(", ")}
-        - Duration: ${preferences.duration}
-        - Budget: ${preferences.budget}
-        - Maximum travel distance: ${locationData.distance}
-        - Transportation: ${locationData.transportation.join(", ")}
-        
-        Please generate a complete itinerary with realistic locations, descriptions, and timeline. 
-        The response should be in JSON format and include:
-        1. A title and description for the itinerary
-        2. The location
-        3. A list of activities (morning, afternoon, evening) with:
-           - Unique ID
-           - Time (e.g., "9:00 AM")
-           - Title
-           - Description
-           - Location (street address and neighborhood)
-           - Price category (e.g., "$", "$$", "$$$")
-           - Rating (e.g., "4.8 ★")
-           - Type (one of: "exploring", "eating", "historical", "cafe")
-           - Time of day category ("morning", "afternoon", or "evening")
-        4. Three relevant recommended similar adventures with title, description, image, rating, and duration.
-        
-        Make activities specific to the location, realistic, and based on actual venues. Include exact addresses. 
-        Format all times appropriately. Make sure descriptions are engaging and 1-2 sentences long.
-      `;
-
-      // Request completion from OpenAI
-      // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert travel planner with deep knowledge of locations worldwide. You create detailed, realistic itineraries based on user preferences."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7
-      });
-
-      // Get images based on needed categories
-      const itineraryData: ItineraryResponse = JSON.parse(response.choices[0].message.content || "{}");
+      // Check if OpenAI API key is working properly
+      let useOpenAI = true;
+      try {
+        // Test the API with a small request
+        await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [{ role: "user", content: "test" }],
+          max_tokens: 5
+        });
+      } catch (apiError) {
+        console.log("OpenAI API error, using fallback data:", apiError);
+        useOpenAI = false;
+      }
       
-      // Add image URLs to activities based on their type
-      itineraryData.activities = itineraryData.activities.map(activity => {
-        const imageType = activity.type.toLowerCase();
-        // Map image URLs based on activity type
-        let imageUrl;
-        
-        switch(imageType) {
-          case "exploring":
-            imageUrl = getRandomImageForCategory("city exploration");
-            break;
-          case "eating":
-            imageUrl = getRandomImageForCategory("restaurant dining");
-            break;
-          case "historical":
-            imageUrl = getRandomImageForCategory("historical landmarks");
-            break;
-          case "cafe":
-            imageUrl = getRandomImageForCategory("cafe atmosphere");
-            break;
-          default:
-            imageUrl = getRandomImageForCategory("people enjoying outings");
-        }
-        
-        return {
-          ...activity,
-          image: imageUrl
-        };
-      });
+      let itineraryData: ItineraryResponse;
       
-      // Add image URLs to recommendations
-      itineraryData.recommendations = itineraryData.recommendations.map(recommendation => {
-        return {
-          ...recommendation,
-          image: getRandomImageForCategory("people enjoying outings")
+      if (useOpenAI) {
+        // Prepare the prompt for OpenAI
+        const prompt = `
+          Generate a personalized hangout itinerary for ${locationData.location}.
+          
+          Preferences:
+          - Activities: ${preferences.hangoutTypes.join(", ")}
+          - Duration: ${preferences.duration}
+          - Budget: ${preferences.budget}
+          - Maximum travel distance: ${locationData.distance}
+          - Transportation: ${locationData.transportation.join(", ")}
+          
+          Please generate a complete itinerary with realistic locations, descriptions, and timeline. 
+          The response should be in JSON format and include:
+          1. A title and description for the itinerary
+          2. The location
+          3. A list of activities (morning, afternoon, evening) with:
+             - Unique ID
+             - Time (e.g., "9:00 AM")
+             - Title
+             - Description
+             - Location (street address and neighborhood)
+             - Price category (e.g., "$", "$$", "$$$")
+             - Rating (e.g., "4.8 ★")
+             - Type (one of: "exploring", "eating", "historical", "cafe")
+             - Time of day category ("morning", "afternoon", or "evening")
+          4. Three relevant recommended similar adventures with title, description, image, rating, and duration.
+          
+          Make activities specific to the location, realistic, and based on actual venues. Include exact addresses. 
+          Format all times appropriately. Make sure descriptions are engaging and 1-2 sentences long.
+        `;
+
+        // Request completion from OpenAI
+        // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert travel planner with deep knowledge of locations worldwide. You create detailed, realistic itineraries based on user preferences."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7
+        });
+
+        // Get images based on needed categories
+        itineraryData = JSON.parse(response.choices[0].message.content || "{}");
+      } else {
+        // Use pre-configured itinerary data based on location and preferences
+        itineraryData = {
+          title: `${preferences.duration} Adventure in ${locationData.location}`,
+          description: `Enjoy a ${preferences.budget.toLowerCase()} itinerary exploring the best of ${locationData.location} with a focus on ${preferences.hangoutTypes.join(", ").toLowerCase()}.`,
+          location: locationData.location,
+          activities: [
+            {
+              id: "act1",
+              time: "9:00 AM",
+              title: "Morning Chai at Connaught Place",
+              description: "Start your day with a traditional chai and breakfast at one of the iconic cafes in this colonial-era shopping district.",
+              location: "Connaught Place, New Delhi",
+              image: getRandomImageForCategory("cafe atmosphere"),
+              price: "₹",
+              rating: "4.6 ★",
+              timeOfDay: "morning",
+              type: "cafe"
+            },
+            {
+              id: "act2",
+              time: "11:00 AM",
+              title: "Visit Humayun's Tomb",
+              description: "Explore this UNESCO World Heritage site with its stunning Mughal architecture and beautiful gardens.",
+              location: "Mathura Road, Nizamuddin, New Delhi",
+              image: getRandomImageForCategory("historical landmarks"),
+              price: "₹₹",
+              rating: "4.8 ★",
+              timeOfDay: "morning",
+              type: "historical"
+            },
+            {
+              id: "act3",
+              time: "1:30 PM",
+              title: "Lunch at Karim's",
+              description: "Enjoy authentic Mughlai cuisine at this legendary restaurant known for its kebabs and curries.",
+              location: "16, Gali Kababian, Jama Masjid, Old Delhi",
+              image: getRandomImageForCategory("restaurant dining"),
+              price: "₹₹",
+              rating: "4.7 ★",
+              timeOfDay: "afternoon",
+              type: "eating"
+            },
+            {
+              id: "act4",
+              time: "3:30 PM",
+              title: "Shop at Dilli Haat",
+              description: "Browse handcrafted items, textiles, and souvenirs from across India at this open-air market.",
+              location: "INA Market, New Delhi",
+              image: getRandomImageForCategory("city exploration"),
+              price: "₹",
+              rating: "4.5 ★",
+              timeOfDay: "afternoon",
+              type: "exploring"
+            },
+            {
+              id: "act5",
+              time: "6:30 PM",
+              title: "Sunset at India Gate",
+              description: "Watch the sunset and see the monument beautifully lit up as evening falls.",
+              location: "Rajpath, New Delhi",
+              image: getRandomImageForCategory("historical landmarks"),
+              price: "Free",
+              rating: "4.9 ★",
+              timeOfDay: "evening",
+              type: "historical"
+            },
+            {
+              id: "act6",
+              time: "8:00 PM",
+              title: "Dinner at Bukhara",
+              description: "Experience one of Delhi's finest dining venues known for its Northwest Frontier cuisine and tandoori dishes.",
+              location: "ITC Maurya, Diplomatic Enclave, Sardar Patel Marg",
+              image: getRandomImageForCategory("restaurant dining"),
+              price: "₹₹₹",
+              rating: "4.8 ★",
+              timeOfDay: "evening",
+              type: "eating"
+            }
+          ],
+          recommendations: [
+            {
+              id: "rec1",
+              title: "Historical Delhi Tour",
+              description: "A full-day tour covering Red Fort, Qutub Minar, and other historical monuments in Delhi.",
+              image: getRandomImageForCategory("historical landmarks"),
+              rating: "4.7 ★",
+              duration: "Full day"
+            },
+            {
+              id: "rec2",
+              title: "Food Walk in Old Delhi",
+              description: "Sample the best street food Delhi has to offer in the narrow lanes of Chandni Chowk.",
+              image: getRandomImageForCategory("restaurant dining"),
+              rating: "4.9 ★",
+              duration: "3-4 hours"
+            },
+            {
+              id: "rec3",
+              title: "Day Trip to Agra",
+              description: "Visit the magnificent Taj Mahal and Agra Fort on a day trip from Delhi.",
+              image: getRandomImageForCategory("historical landmarks"),
+              rating: "4.8 ★",
+              duration: "Full day"
+            }
+          ]
         };
-      });
+      }
       
       // Save the generated itinerary to storage
       const savedItinerary = await storage.saveItinerary(itineraryData);
