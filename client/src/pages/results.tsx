@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ProgressSteps } from "@/components/ui/progress-steps";
@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { ItineraryResponse } from "@/lib/openai";
 
 export default function Results() {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
 
@@ -25,14 +24,14 @@ export default function Results() {
         description: "We couldn't find your itinerary. Please start over.",
         variant: "destructive"
       });
-      navigate("/");
+      window.location.href = "/";
     }
-  }, [navigate, toast]);
+  }, [toast]);
 
   const handlePlanAnother = () => {
     // Clear session storage and start over
     sessionStorage.clear();
-    navigate("/");
+    window.location.href = "/";
   };
 
   const handleShare = () => {

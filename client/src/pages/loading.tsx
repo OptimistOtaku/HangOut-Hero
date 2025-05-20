@@ -1,11 +1,10 @@
 import { useEffect } from "react";
-import { useNavigate } from "wouter";
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { generateItinerary, PreferenceFormData, LocationFormData, ItineraryResponse } from "@/lib/openai";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Loading() {
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -21,7 +20,7 @@ export default function Loading() {
             description: "We couldn't find your preferences or location data. Please start over.",
             variant: "destructive"
           });
-          navigate("/");
+          window.location.href = "/";
           return;
         }
 
@@ -36,7 +35,7 @@ export default function Loading() {
         
         // Allow loading animation to run for at least 2 seconds
         setTimeout(() => {
-          navigate("/results");
+          window.location.href = "/results";
         }, 2000);
       } catch (error) {
         console.error("Error generating itinerary:", error);
@@ -45,12 +44,12 @@ export default function Loading() {
           description: "Failed to generate your itinerary. Please try again.",
           variant: "destructive"
         });
-        navigate("/questionnaire");
+        window.location.href = "/questionnaire";
       }
     };
 
     fetchItinerary();
-  }, [navigate, toast]);
+  }, [toast]);
 
   return (
     <section className="py-16 min-h-[80vh] flex items-center justify-center">

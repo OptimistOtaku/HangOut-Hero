@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,8 +14,6 @@ interface LocationOption {
 }
 
 export default function Location() {
-  const navigate = useNavigate();
-  
   const [locationData, setLocationData] = useState<LocationFormData>({
     location: "San Francisco, CA",
     distance: "Moderate (up to 5 miles)",
@@ -54,18 +52,18 @@ export default function Location() {
       setPreferenceData(JSON.parse(savedPrefs));
     } else {
       // Redirect back to questionnaire if no preference data exists
-      navigate("/questionnaire");
+      window.location.href = "/questionnaire";
     }
-  }, [navigate]);
+  }, []);
 
   const handleBack = () => {
-    navigate("/questionnaire");
+    window.location.href = "/questionnaire";
   };
 
   const handleGenerate = () => {
     // Save location data to session storage
     sessionStorage.setItem('locationData', JSON.stringify(locationData));
-    navigate("/loading");
+    window.location.href = "/loading";
   };
 
   const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {

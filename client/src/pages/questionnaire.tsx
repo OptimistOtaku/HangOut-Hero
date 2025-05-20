@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProgressSteps } from "@/components/ui/progress-steps";
@@ -7,7 +7,6 @@ import { PreferenceCard } from "@/components/ui/preference-card";
 import { PreferenceFormData } from "@/lib/openai";
 
 export default function Questionnaire() {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState<PreferenceFormData>({
     hangoutTypes: [],
     duration: "Full day",
@@ -17,7 +16,7 @@ export default function Questionnaire() {
   const handleNext = () => {
     // Save form data to session storage
     sessionStorage.setItem('preferenceData', JSON.stringify(formData));
-    navigate("/location");
+    window.location.href = "/location";
   };
 
   const toggleHangoutType = (type: string) => {
