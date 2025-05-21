@@ -1,8 +1,15 @@
+import { config } from "dotenv";
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import OpenAI from "openai";
+
+// Load environment variables and log the result
+const result = config();
+console.log("Dotenv config result:", result);
+console.log("API Key present:", !!process.env.OPENAI_API_KEY);
+console.log("API Key length:", process.env.OPENAI_API_KEY?.length);
 
 // Initialize OpenAI API client
 const openai = new OpenAI({
@@ -68,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Generating itinerary for", locationData.location);
       
       // Initialize itinerary data
-      let itineraryData: ItineraryResponse;
+      let itineraryData: ItineraryResponse | null = null;
       let useOpenAI = true;
       
       // Try to use OpenAI first
@@ -598,6 +605,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Save the generated itinerary to storage
+      if (!itineraryData) {
+        throw new Error("No itinerary data generated");
+      }
       const savedItinerary = await storage.saveItinerary(itineraryData);
       
       // Send the response
