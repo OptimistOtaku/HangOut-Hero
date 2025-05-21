@@ -64,7 +64,7 @@ interface ItineraryResponse {
 }
 
 // Function to get random image for category
-function getRandomImageForCategory(category: string): string {
+function getRandomImageForCategory(category: "cafe atmosphere" | "historical landmarks" | "restaurant dining" | "city exploration" | "people enjoying outings" | string): string {
   const categoryImages = {
     "cafe atmosphere": [
       "https://images.unsplash.com/photo-1525610553991-2bede1a236e2?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=640",
@@ -91,9 +91,9 @@ function getRandomImageForCategory(category: string): string {
       "https://images.unsplash.com/photo-1471560090527-d1af5e4e6eb6?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=640",
       "https://images.unsplash.com/photo-1536625737227-92a1fc042e7e?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=640"
     ]
-  };
+  } as const;
 
-  const images = categoryImages[category] || categoryImages["cafe atmosphere"];
+  const images = categoryImages[category as keyof typeof categoryImages] || categoryImages["cafe atmosphere"];
   return images[Math.floor(Math.random() * images.length)];
 }
 
