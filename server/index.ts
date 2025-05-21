@@ -37,6 +37,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// Function to find an available port
+async function findAvailablePort(startPort: number): Promise<number> {
+  const net = await import('net');
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        resolve(findAvailablePort(startPort + 1));
+      } else {
+        reject(err);
+      }
+    });
+    server.listen(startPort, () => {
+      server.close(() => {
+        resolve(startPort);
+      });
+    });
+  });
+}
+
 (async () => {
   const server = await registerRoutes(app);
 
@@ -55,18 +76,19 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use Vercel's PORT or default to 5000
-  const port = process.env.PORT || 5000;
-  
   // Only start the server if not in Vercel environment
   if (process.env.NODE_ENV !== "production") {
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    }, () => {
-      log(`serving on port ${port}`);
-    });
+    try {
+      const preferredPort = parseInt(process.env.PORT || "5000", 10);
+      const port = await findAvailablePort(preferredPort);
+      
+      server.listen(port, () => {
+        log(`Server running on port ${port}`);
+      });
+    } catch (error) {
+      log(`Failed to start server: ${error}`);
+      process.exit(1);
+    }
   }
 })();
 
