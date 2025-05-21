@@ -48,18 +48,27 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
+  // Setup Vite in development
+  if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // Use a simpler server configuration
+  // Use Vercel's PORT or default to 5000
   const port = process.env.PORT || 5000;
-  server.listen(port, () => {
-    log(`Server running on http://localhost:${port}`);
-  });
+  
+  // Only start the server if not in Vercel environment
+  if (process.env.NODE_ENV !== "production") {
+    server.listen({
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      log(`serving on port ${port}`);
+    });
+  }
 })();
+
+// Export for Vercel
+export default app;
