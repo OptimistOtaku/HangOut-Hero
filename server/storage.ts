@@ -1,5 +1,5 @@
-import { users, type User, type InsertUser, type Itinerary } from "@shared/schema";
-import type { ItineraryResponse } from "../client/src/lib/openai";
+import { users, type User, type InsertUser, type Itinerary } from "../shared/schema.js";
+import type { ItineraryResponse } from "../client/src/lib/openai.js";
 
 // modify the interface with any CRUD methods
 // you might need

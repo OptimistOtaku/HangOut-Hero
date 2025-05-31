@@ -20,7 +20,7 @@ export default function Questionnaire() {
   };
 
   const toggleHangoutType = (type: string) => {
-    setFormData(prev => {
+    setFormData((prev: PreferenceFormData) => {
       const types = [...prev.hangoutTypes];
       const index = types.indexOf(type);
       
@@ -35,11 +35,11 @@ export default function Questionnaire() {
   };
 
   const setDuration = (duration: string) => {
-    setFormData(prev => ({ ...prev, duration }));
+    setFormData((prev: PreferenceFormData) => ({ ...prev, duration }));
   };
 
   const setBudget = (budget: string) => {
-    setFormData(prev => ({ ...prev, budget }));
+    setFormData((prev: PreferenceFormData) => ({ ...prev, budget }));
   };
 
   return (
