@@ -1,17 +1,18 @@
 import { Switch, Route, useLocation } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient } from "./lib/queryClient.js";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ThemeProvider } from "@/components/ui/theme-provider";
-import NotFound from "@/pages/not-found";
-import Home from "@/pages/home";
-import Questionnaire from "@/pages/questionnaire";
-import Location from "@/pages/location";
-import Loading from "@/pages/loading";
-import Results from "@/pages/results";
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
+import { Toaster } from "./components/ui/toaster.jsx";
+import { TooltipProvider } from "./components/ui/tooltip.jsx";
+import { ThemeProvider } from "./components/ui/theme-provider.jsx";
+import NotFound from "./pages/not-found.jsx";
+import Home from "./pages/home.jsx";
+import Questionnaire from "./pages/questionnaire.jsx";
+import Location from "./pages/location.jsx";
+import Loading from "./pages/loading.jsx";
+import Results from "./pages/results.jsx";
+import Header from "./components/layout/header.jsx";
+import Footer from "./components/layout/footer.jsx";
+import { Analytics } from "@vercel/analytics/next"
 
 function Router() {
   const [location] = useLocation();
@@ -41,6 +42,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
+          <Analytics />
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>
