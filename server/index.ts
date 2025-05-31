@@ -1,6 +1,6 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes.js";
 import path from "path";
 
 const app = express();
@@ -57,6 +57,12 @@ app.use(express.static(distPath));
 // Handle client-side routing
 app.get("*", (_req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
+});
+
+// Start the server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
 
 // Export for Vercel
