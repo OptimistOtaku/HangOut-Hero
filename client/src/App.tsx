@@ -12,7 +12,7 @@ import Loading from "./pages/loading.jsx";
 import Results from "./pages/results.jsx";
 import Header from "./components/layout/header.jsx";
 import Footer from "./components/layout/footer.jsx";
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from "@vercel/analytics/react";
 
 function Router() {
   const [location] = useLocation();
