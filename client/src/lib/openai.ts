@@ -28,6 +28,9 @@ export interface ItineraryActivity {
     lat: number;
     lng: number;
   };
+  justification?: string;
+  directionsUrl?: string;
+  googleMapsLink?: string;
 }
 
 export interface Recommendation {
