@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Button } from "../ui/button.jsx";
 
 export default function Header() {
   const [location] = useLocation();

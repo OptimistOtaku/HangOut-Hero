@@ -1,5 +1,5 @@
 import { ActivityCard } from "./activity-card.jsx";
-import { ItineraryActivity } from "@/lib/openai";
+import { ItineraryActivity } from "../../lib/openai.js";
 
 interface ItineraryTimelineProps {
   activities: ItineraryActivity[];

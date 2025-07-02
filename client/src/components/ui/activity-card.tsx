@@ -18,20 +18,6 @@ export function ActivityCard({ activity, timeOfDay, isLast }: ActivityCardProps)
   
   const timeColor = colorMap[timeOfDay];
   
-  const handleDirection = () => {
-    toast({
-      title: "Directions",
-      description: `Directions to ${activity.title} will be available soon!`,
-    });
-  };
-  
-  const handleLink = () => {
-    toast({
-      title: "External link",
-      description: `Link to ${activity.title}'s website will be available soon!`,
-    });
-  };
-  
   const handleBookmark = () => {
     toast({
       title: "Bookmarked!",
@@ -65,24 +51,37 @@ export function ActivityCard({ activity, timeOfDay, isLast }: ActivityCardProps)
               <span className="bg-decorative/10 text-decorative px-2 py-1 rounded text-xs">{activity.rating} ★</span>
             </div>
           </div>
-          <p className="text-gray-700 mb-4">{activity.description}</p>
+          <p className="text-gray-700 mb-2">{activity.description}</p>
+          {activity.justification && (
+            <p className="text-xs text-gray-500 italic mb-2">{activity.justification}</p>
+          )}
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-700">
               <i className="fas fa-location-dot mr-1"></i> {activity.location}
             </span>
             <div className="flex space-x-2">
-              <button 
-                className="text-gray-700 hover:text-primary transition-colors"
-                onClick={handleDirection}
-              >
-                <i className="fas fa-directions"></i>
-              </button>
-              <button 
-                className="text-gray-700 hover:text-primary transition-colors"
-                onClick={handleLink}
-              >
-                <i className="fas fa-link"></i>
-              </button>
+              {activity.directionsUrl && (
+                <a
+                  href={activity.directionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-700 hover:text-primary transition-colors"
+                  title="Get Directions"
+                >
+                  <i className="fas fa-directions"></i>
+                </a>
+              )}
+              {activity.googleMapsLink && (
+                <a
+                  href={activity.googleMapsLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-700 hover:text-primary transition-colors"
+                  title="View on Google Maps"
+                >
+                  <i className="fas fa-map-marker-alt"></i>
+                </a>
+              )}
               <button 
                 className="text-gray-700 hover:text-primary transition-colors"
                 onClick={handleBookmark}

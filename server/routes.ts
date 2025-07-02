@@ -1,7 +1,11 @@
 import { config } from "dotenv";
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
+import session from "express-session";
+import bcrypt from "bcryptjs";
+import { storage } from "./storage.js";
+import fetch from "node-fetch";
 
 // Load environment variables and log the result
 const result = config();
@@ -9,9 +13,9 @@ console.log("Dotenv config result:", result);
 console.log("API Key present:", !!process.env.OPENAI_API_KEY);
 console.log("API Key length:", process.env.OPENAI_API_KEY?.length);
 
-// Initialize OpenAI API client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+// Initialize Gemini client with API key from environment
+const gemini = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
 });
 
 // Validation schemas
@@ -44,6 +48,7 @@ interface ItineraryActivity {
   rating: string;
   timeOfDay: "morning" | "afternoon" | "evening";
   type: string;
+  directionsUrl?: string;
 }
 
 interface Recommendation {
@@ -97,7 +102,81 @@ function getRandomImageForCategory(category: "cafe atmosphere" | "historical lan
   return images[Math.floor(Math.random() * images.length)];
 }
 
+// Add this for session type extension
+declare module "express-session" {
+  interface SessionData {
+    userId?: number;
+  }
+}
+
+// Helper to get Google Places photo URL
+async function getPlacePhotoUrl(name: string, address: string): Promise<string | undefined> {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) return undefined;
+  // Search for the place
+  const searchUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(name + ' ' + address)}&inputtype=textquery&fields=photos,place_id&key=${apiKey}`;
+  console.log('[Google Places] Searching for:', name, address);
+  console.log('[Google Places] URL:', searchUrl);
+  const searchRes = await fetch(searchUrl);
+  console.log('[Google Places] Status:', searchRes.status);
+  const searchData = await searchRes.json();
+  console.log('[Google Places] Result:', JSON.stringify(searchData));
+  const candidate = searchData.candidates && searchData.candidates[0];
+  if (candidate && candidate.photos && candidate.photos[0]) {
+    const photoRef = candidate.photos[0].photo_reference;
+    return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photoRef}&key=${apiKey}`;
+  }
+  return undefined;
+}
+
+// Helper to get Google Maps directions link
+function getDirectionsUrl(origin: string, destination: string): string {
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`;
+}
+
 export function registerRoutes(app: Express) {
+  // Add session middleware
+  app.use(session({
+    secret: process.env.SESSION_SECRET || "dev_secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, httpOnly: true },
+  }));
+
+  // Register endpoint
+  app.post("/api/register", async (req: Request, res: Response) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password required" });
+    }
+    const existing = await storage.getUserByUsername(username);
+    if (existing) {
+      return res.status(409).json({ message: "Username already exists" });
+    }
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await storage.createUser({ username, password: hashed });
+    req.session.userId = user.id;
+    res.json({ id: user.id, username: user.username });
+  });
+
+  // Login endpoint
+  app.post("/api/login", async (req: Request, res: Response) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password required" });
+    }
+    const user = await storage.getUserByUsername(username);
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    req.session.userId = user.id;
+    res.json({ id: user.id, username: user.username });
+  });
+
   // API endpoint to generate an itinerary
   app.post("/api/generate-itinerary", async (req: Request, res: Response) => {
     try {
@@ -110,87 +189,110 @@ export function registerRoutes(app: Express) {
       let itineraryData: ItineraryResponse | null = null;
       let useOpenAI = true;
       
-      // Try to use OpenAI first
+      // Try to use Gemini first
       try {
-        console.log("Attempting to use OpenAI for personalized itinerary...");
-        
-        // Prepare the prompt for OpenAI
+        console.log("Attempting to use Gemini for personalized itinerary...");
+        // Improved prompt for Gemini
         const prompt = `
-          Generate a personalized hangout itinerary for ${locationData.location}.
-          
+          You are an expert Indian travel planner. Generate a highly personalized, realistic, and diverse hangout itinerary for the following:
+
+          Location: ${locationData.location}
           Preferences:
           - Activities: ${preferences.hangoutTypes.join(", ")}
           - Duration: ${preferences.duration}
           - Budget: ${preferences.budget}
           - Maximum travel distance: ${locationData.distance}
           - Transportation: ${locationData.transportation.join(", ")}
-          
-          Please generate a complete itinerary with realistic locations, descriptions, and timeline. 
-          The response should be in JSON format and include:
-          1. A title and description for the itinerary
-          2. The location
-          3. A list of 6 activities (2 morning, 2 afternoon, 2 evening) with:
-             - Unique ID
-             - Time (e.g., "9:00 AM")
-             - Title
-             - Description
-             - Location (street address and neighborhood)
-             - Price category (use "₹" for budget, "₹₹" for moderate, "₹₹₹" for expensive)
-             - Rating (e.g., "4.8 ★")
-             - Type (one of: "exploring", "eating", "historical", "cafe")
-             - Time of day category ("morning", "afternoon", or "evening")
-          4. Three relevant recommended similar adventures with title, description, rating, and duration.
-          
-          Make activities specific to the location, realistic, and based on actual venues. Include exact addresses.
-          Format all times appropriately. Make sure descriptions are engaging and 1-2 sentences long.
-          Focus on authentic Indian experiences.
+
+          Requirements:
+          - The itinerary must be for authentic, real, and highly-rated venues (no made-up or generic names).
+          - For each activity, include the exact venue name, full street address, and a Google Maps link.
+          - Each activity must have a short justification (1-2 sentences) explaining why it fits the user's preferences.
+          - Activities must be diverse and cover different types (exploring, eating, historical, cafe, etc.)
+          - The response must be in strict JSON format with:
+            {
+              "title": string,
+              "description": string,
+              "location": string,
+              "activities": [
+                {
+                  "id": string,
+                  "time": string,
+                  "title": string,
+                  "description": string,
+                  "location": string,
+                  "googleMapsLink": string,
+                  "justification": string,
+                  "image": string,
+                  "price": string,
+                  "rating": string,
+                  "timeOfDay": "morning" | "afternoon" | "evening",
+                  "type": string
+                }
+              ],
+              "recommendations": [
+                {
+                  "id": string,
+                  "title": string,
+                  "description": string,
+                  "image": string,
+                  "rating": string,
+                  "duration": string
+                }
+              ]
+            }
+          - Activities must be specific to the location and based on actual venues. Include exact addresses and Google Maps links.
+          - Format all times appropriately. Make sure descriptions are engaging and 1-2 sentences long.
+          - Focus on authentic Indian experiences.
         `;
 
-        // Request completion from OpenAI
-        const response = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert travel planner with deep knowledge of Indian locations. You create detailed, realistic itineraries based on user preferences."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.7
+        // Gemini API call
+        const geminiResponse = await gemini.models.generateContent({
+          model: "gemini-2.5-pro",
+          contents: prompt,
         });
-
-        // Parse the response
-        const generatedData = JSON.parse(response.choices[0].message.content || "{}");
-        
-        // Add image URLs to activities based on their type
-        if (generatedData.activities && Array.isArray(generatedData.activities)) {
-          generatedData.activities = generatedData.activities.map((activity: any) => ({
-            ...activity,
-            image: activity.image || getRandomImageForCategory(activity.type || "cafe")
-          }));
+        // Ensure response.text is a string
+        let responseText = typeof geminiResponse.text === "string" ? geminiResponse.text : "{}";
+        // Remove Markdown code block markers if present
+        responseText = responseText.trim();
+        if (responseText.startsWith('```')) {
+          responseText = responseText.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
         }
-        
+        let generatedData;
+        try {
+          generatedData = JSON.parse(responseText);
+        } catch (err) {
+          console.error("Failed to parse Gemini response as JSON. Raw response:", responseText);
+          throw new Error("Gemini did not return valid JSON. Please try again.");
+        }
+        // Add image URLs and directions to activities based on their type
+        let previousLocation = generatedData.location + ' city centre';
+        if (generatedData.activities && Array.isArray(generatedData.activities)) {
+          for (let i = 0; i < generatedData.activities.length; i++) {
+            const activity = generatedData.activities[i];
+            // Try to get a real photo
+            let realImage = await getPlacePhotoUrl(activity.title, activity.location);
+            activity.image = realImage || activity.image || getRandomImageForCategory(activity.type || "cafe");
+            // Add directions link
+            activity.directionsUrl = getDirectionsUrl(previousLocation, activity.location);
+            previousLocation = activity.location;
+          }
+        }
         // Add image URLs to recommendations
         if (generatedData.recommendations && Array.isArray(generatedData.recommendations)) {
-          generatedData.recommendations = generatedData.recommendations.map((rec: any) => ({
-            ...rec,
-            image: rec.image || getRandomImageForCategory("historical landmarks")
-          }));
+          for (let rec of generatedData.recommendations) {
+            let realImage = await getPlacePhotoUrl(rec.title, generatedData.location);
+            rec.image = realImage || rec.image || getRandomImageForCategory("historical landmarks");
+          }
         }
-        
         itineraryData = generatedData;
-        console.log("Successfully generated personalized itinerary using AI");
-        
+        console.log("Successfully generated personalized itinerary using Gemini");
       } catch (apiError) {
-        console.log("OpenAI API error, using fallback data:", apiError);
+        console.log("Gemini API error, using fallback data:", apiError);
         useOpenAI = false;
       }
       
-      // If OpenAI API failed or reached rate limit, use pre-configured data
+      // If Gemini API failed or reached rate limit, use pre-configured data
       if (!useOpenAI) {
         console.log("Using pre-configured itinerary data for", locationData.location);
         

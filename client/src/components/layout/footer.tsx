@@ -1,5 +1,5 @@
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Input } from "../ui/input.jsx";
+import { Button } from "../ui/button.jsx";
 
 export default function Footer() {
   return (
