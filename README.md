@@ -43,18 +43,16 @@ npm run dev
 Make sure to configure environment variables for AI API keys and map services before running.
 
 📸 Demo
-Live demo coming soon!
-You can run it locally using the steps above.
 
-🔐 Environment Setup
-Create a .env file in the root and define:
+![Screenshot_12-7-2025_184157_hang-out-hero vercel app](https://github.com/user-attachments/assets/2bb4c04d-7ab6-4226-ac43-ea06e9cfa2cc)
 
-env
-Copy
-Edit
-AI_API_KEY=your_api_key
-MAPS_API_KEY=your_maps_key
-Adjust based on your actual backend implementation.
+
+## 📖 Read the Full Story
+
+Learn more about how we built Hangout Hero and the AI behind it:  
+👉 [Read the blog on Medium](https://medium.com/@optimistotaku/hangout-hero-let-ai-plan-your-next-epic-outing-so-you-dont-have-to-20a364d028d2)
+
+
 
 🧠 Planned Enhancements
 🧾 Save/share itineraries
