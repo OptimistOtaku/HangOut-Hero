@@ -2,8 +2,6 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
 import path from "path";
-import { createClient as createRedisClient } from 'redis';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 const app = express();
 
@@ -41,18 +39,6 @@ app.use((req, res, next) => {
 
   next();
 });
-
-// Initialize Redis client
-export const redis = createRedisClient({
-  url: process.env.REDIS_URL
-});
-redis.connect().then(() => console.log('Redis connected')).catch(console.error);
-
-// Initialize Supabase client
-export const supabase = createSupabaseClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // Register API routes
 registerRoutes(app);

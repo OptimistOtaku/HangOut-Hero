@@ -12,14 +12,11 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "moduleResolution": "NodeNext",
-    "baseUrl": "./client/src",
+    "baseUrl": ".",
     "types": ["node", "vite/client"],
     "paths": {
-      "@/*": ["*"],
-      "@/lib/*": ["lib/*"],
-      "@/components/*": ["components/*"],
-      "@/pages/*": ["pages/*"],
-      "@/hooks/*": ["hooks/*"]
+      "@/*": ["./client/src/*"],
+      "@shared/*": ["./shared/*"]
     },
     "allowJs": true,
     "resolveJsonModule": true,

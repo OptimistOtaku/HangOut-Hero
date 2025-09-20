@@ -1,26 +1,12 @@
 import { Link } from "wouter";
-import { Button } from "../components/ui/button.jsx";
-import { Card } from "../components/ui/card.jsx";
-import { useLoginModal } from "../components/layout/header.jsx";
-import { supabase } from "../lib/supabase.js";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 export default function Home() {
-  const openLoginModal = useLoginModal();
   const handleStartPlanning = () => {
     window.location.href = "/questionnaire";
   };
-  const handleBrowseExamples = () => {
-    window.location.href = "/examples";
-  };
 
-  const handleGetStarted = async () => {
-    const session = (await supabase.auth.getSession()).data.session;
-    if (!session) {
-      if (openLoginModal) openLoginModal();
-    } else {
-      window.location.href = "/questionnaire";
-    }
-  };
   return (
     <section className="py-8 md:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto text-center">
@@ -42,15 +28,8 @@ export default function Home() {
             <Button 
               variant="outline"
               className="w-full md:w-auto border border-gray-300 hover:border-primary text-text text-lg font-medium py-6 px-8 rounded-xl"
-              onClick={handleBrowseExamples}
             >
               Browse Examples
-            </Button>
-            <Button 
-              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-[#FF6B85]"
-              onClick={handleGetStarted}
-            >
-              Get Started
             </Button>
           </div>
         </Card>

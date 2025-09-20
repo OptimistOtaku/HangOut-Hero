@@ -62,7 +62,7 @@ export const itineraryResponseSchema = z.object({
 
 export const itinerarySchema = itineraryResponseSchema;
 
-export const insertItinerarySchema: z.ZodType<any> = createInsertSchema(itineraries).pick({
+export const insertItinerarySchema = createInsertSchema(itineraries).pick({
   userId: true,
   title: true,
   description: true,

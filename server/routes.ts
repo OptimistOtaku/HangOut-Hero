@@ -2,7 +2,9 @@ import { config } from "dotenv";
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
-import { redis, supabase } from "./index.js";
+import session from "express-session";
+import bcrypt from "bcryptjs";
+import { storage } from "./storage.js";
 import fetch from "node-fetch";
 
 // Load environment variables and log the result
@@ -100,6 +102,13 @@ function getRandomImageForCategory(category: "cafe atmosphere" | "historical lan
   return images[Math.floor(Math.random() * images.length)];
 }
 
+// Add this for session type extension
+declare module "express-session" {
+  interface SessionData {
+    userId?: number;
+  }
+}
+
 // Helper to get Google Places photo URL
 async function getPlacePhotoUrl(name: string, address: string): Promise<string | undefined> {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
@@ -125,108 +134,47 @@ function getDirectionsUrl(origin: string, destination: string): string {
   return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`;
 }
 
-// Helper to extract user ID from Supabase JWT
-function getUserIdFromAuthHeader(req: Request): string | null {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return null;
-  const token = auth.replace('Bearer ', '');
-  // Supabase JWT: decode payload (base64) to get user id (sub)
-  try {
-    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-    return payload.sub;
-  } catch {
-    return null;
-  }
-}
-
 export function registerRoutes(app: Express) {
   // Add session middleware
-  // app.use(session({
-  //   secret: process.env.SESSION_SECRET || "dev_secret",
-  //   resave: false,
-  //   saveUninitialized: false,
-  //   cookie: { secure: false, httpOnly: true },
-  // }));
+  app.use(session({
+    secret: process.env.SESSION_SECRET || "dev_secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, httpOnly: true },
+  }));
 
   // Register endpoint
   app.post("/api/register", async (req: Request, res: Response) => {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password required" });
     }
-    const { data, error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true
-    });
-    if (error) {
-      return res.status(400).json({ message: error.message });
+    const existing = await storage.getUserByUsername(username);
+    if (existing) {
+      return res.status(409).json({ message: "Username already exists" });
     }
-    res.json({ id: data.user?.id, email: data.user?.email });
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await storage.createUser({ username, password: hashed });
+    req.session.userId = user.id;
+    res.json({ id: user.id, username: user.username });
   });
 
   // Login endpoint
   app.post("/api/login", async (req: Request, res: Response) => {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password required" });
     }
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    if (error) {
-      return res.status(401).json({ message: error.message });
+    const user = await storage.getUserByUsername(username);
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
     }
-    res.json({ session: data.session, user: data.user });
-  });
-
-  // Save itinerary for logged-in user
-  app.post("/api/itineraries", async (req: Request, res: Response) => {
-    const userId = getUserIdFromAuthHeader(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
-    const { title, description, location, activities, recommendations } = req.body;
-    if (!title || !description || !location || !activities || !recommendations) {
-      return res.status(400).json({ message: "Missing itinerary fields" });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ message: "Invalid credentials" });
     }
-    const { error } = await supabase.from('itineraries').insert({
-      user_id: userId,
-      title,
-      description,
-      location,
-      activities,
-      recommendations
-    });
-    if (error) return res.status(500).json({ message: error.message });
-    res.json({ success: true });
-  });
-
-  // Fetch all itineraries for logged-in user
-  app.get("/api/itineraries", async (req: Request, res: Response) => {
-    const userId = getUserIdFromAuthHeader(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
-    const { data, error } = await supabase
-      .from('itineraries')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (error) return res.status(500).json({ message: error.message });
-    res.json({ itineraries: data });
-  });
-
-  // Delete itinerary for logged-in user
-  app.delete("/api/itineraries/:id", async (req: Request, res: Response) => {
-    const userId = getUserIdFromAuthHeader(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
-    const { id } = req.params;
-    // Only allow deleting user's own itinerary
-    const { error } = await supabase
-      .from('itineraries')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId);
-    if (error) return res.status(500).json({ message: error.message });
-    res.json({ success: true });
+    req.session.userId = user.id;
+    res.json({ id: user.id, username: user.username });
   });
 
   // API endpoint to generate an itinerary
@@ -234,12 +182,6 @@ export function registerRoutes(app: Express) {
     try {
       // Validate request body
       const { preferences, locationData } = generateItinerarySchema.parse(req.body);
-      const cacheKey = `itinerary:${locationData.location}:${JSON.stringify(preferences)}`;
-      // Check Redis cache first
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        return res.json(JSON.parse(cached));
-      }
       
       console.log("Generating itinerary for", locationData.location);
       
@@ -403,11 +345,6 @@ export function registerRoutes(app: Express) {
 
       if (!itineraryData) {
         throw new Error("No itinerary data generated");
-      }
-
-      // Save to Redis cache
-      if (itineraryData) {
-        await redis.set(cacheKey, JSON.stringify(itineraryData), { EX: 60 * 60 }); // 1 hour expiry
       }
 
       res.json(itineraryData);
