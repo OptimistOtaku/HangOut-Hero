@@ -21,6 +21,7 @@ export function RecommendationCard({ recommendation }: RecommendationCardProps) 
         src={recommendation.image} 
         alt={recommendation.title} 
         className="w-full h-48 object-cover"
+        onError={e => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=1000"; }}
       />
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">

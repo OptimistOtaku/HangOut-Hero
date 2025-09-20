@@ -1,10 +1,66 @@
 import { Link, useLocation } from "wouter";
-import { Button } from "../ui/button.jsx";
+import { useState, useEffect, createContext, useContext } from 'react';
+import { supabase } from '../../lib/supabase.js';
+import { Button } from '../ui/button.jsx';
+import { Input } from '../ui/input.jsx';
 
-export default function Header() {
-  const [location] = useLocation();
-  
+// Context for global login modal
+const LoginModalContext = createContext<(() => void) | null>(null);
+export function useLoginModal() {
+  return useContext(LoginModalContext);
+}
+
+export function Header() {
+  const [location, setLocation] = useLocation();
+  const [showAuth, setShowAuth] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }: { data: { session: any } }) => setUser(data.session?.user || null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
+      setUser(session?.user || null);
+    });
+    return () => { listener?.subscription.unsubscribe(); };
+  }, []);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    if (mode === 'login') {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setError(error.message);
+      else setShowAuth(false);
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setError(error.message);
+      else setMode('login');
+    }
+    setLoading(false);
+  };
+
+  const handleGoogle = async () => {
+    setLoading(true);
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+    if (error) setError(error.message);
+    setLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setShowAuth(false);
+    setLocation('/');
+  };
+
   return (
+    <LoginModalContext.Provider value={() => setShowAuth(true)}>
     <header className="bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
@@ -24,12 +80,14 @@ export default function Header() {
           </nav>
           
           <div className="flex items-center space-x-4">
-            <Button 
-              variant="ghost" 
-              className="hidden md:block text-text font-medium hover:text-primary"
-            >
-              Sign In
-            </Button>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-700">{user.email}</span>
+                <Button onClick={handleLogout} className="ml-2">Logout</Button>
+              </div>
+            ) : (
+              <Button onClick={() => setShowAuth(true)}>Login / Register</Button>
+            )}
             
             {location === "/" ? (
               <Button 
@@ -57,6 +115,56 @@ export default function Header() {
           </div>
         </div>
       </div>
+      {showAuth && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md relative">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={() => setShowAuth(false)}>
+              &times;
+            </button>
+            <h2 className="text-2xl font-bold mb-4 text-center">
+              {mode === 'login' ? 'Login to your account' : 'Create an account'}
+            </h2>
+            <form onSubmit={handleAuth} className="space-y-4">
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+              {error && <div className="text-red-500 text-sm">{error}</div>}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Loading...' : mode === 'login' ? 'Login' : 'Register'}
+              </Button>
+            </form>
+            <div className="my-4 text-center text-gray-500">or</div>
+            <Button onClick={handleGoogle} className="w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-100" disabled={loading}>
+              <i className="fab fa-google mr-2"></i> Continue with Google
+            </Button>
+            <div className="mt-4 text-center">
+              {mode === 'login' ? (
+                <span>
+                  Don't have an account?{' '}
+                  <button className="text-primary underline" onClick={() => setMode('register')}>Register</button>
+                </span>
+              ) : (
+                <span>
+                  Already have an account?{' '}
+                  <button className="text-primary underline" onClick={() => setMode('login')}>Login</button>
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
+    </LoginModalContext.Provider>
   );
 }

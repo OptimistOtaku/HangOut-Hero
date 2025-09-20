@@ -33,6 +33,7 @@ export function ActivityCard({ activity, timeOfDay, isLast }: ActivityCardProps)
             src={activity.image} 
             alt={activity.title} 
             className="w-full h-full object-cover"
+            onError={e => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80&h=250"; }}
           />
         </div>
         <div className="w-full md:w-2/3">

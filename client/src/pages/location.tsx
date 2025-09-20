@@ -1,17 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ProgressSteps } from "@/components/ui/progress-steps";
-import { PreferenceFormData, LocationFormData } from "@/lib/openai";
+import { Button } from "../components/ui/button.jsx";
+import { Card, CardContent } from "../components/ui/card.jsx";
+import { Input } from "../components/ui/input.jsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select.jsx";
+import { ProgressSteps } from "../components/ui/progress-steps.jsx";
+import { PreferenceFormData, LocationFormData } from "../lib/openai.js";
 
 interface LocationOption {
   name: string;
   image: string;
   selected: boolean;
 }
+
+// Add a static list of popular Indian cities for suggestions
+const CITY_SUGGESTIONS = [
+  "Delhi", "Noida", "Jaipur", "Chandigarh", "Mumbai", "Bangalore", "Hyderabad", "Pune", "Kolkata", "Chennai", "Ahmedabad", "Lucknow", "Indore", "Bhopal", "Patna", "Nagpur", "Kanpur", "Surat", "Vadodara", "Ludhiana", "Agra", "Varanasi", "Amritsar", "Shimla", "Dehradun", "Guwahati", "Ranchi", "Raipur", "Jodhpur", "Udaipur", "Mysore", "Coimbatore", "Thiruvananthapuram", "Vijayawada", "Visakhapatnam"
+];
 
 export default function Location() {
   const [locationData, setLocationData] = useState<LocationFormData>({
@@ -25,25 +30,29 @@ export default function Location() {
   const [locations, setLocations] = useState<LocationOption[]>([
     { 
       name: "Delhi", 
-      image: "https://images.unsplash.com/photo-1587474260584-136574528ed5?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
+      image: "https://images.unsplash.com/photo-1587474260584-136574528ed5?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80&h=250", 
       selected: true 
     },
     { 
       name: "Noida", 
-      image: "https://images.unsplash.com/photo-1601961405399-801fb1936fc3?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
+      image: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80&h=250", 
       selected: false 
     },
     { 
       name: "Jaipur", 
-      image: "https://images.unsplash.com/photo-1599661046289-e31897846e41?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
+      image: "https://images.unsplash.com/photo-1599661046289-e31897846e41?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80&h=250", 
       selected: false 
     },
     { 
-      name: "Mussoorie", 
-      image: "https://images.unsplash.com/photo-1591017683656-4322564dde48?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250", 
+      name: "Chandigarh", 
+      image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80&h=250", 
       selected: false 
     }
   ]);
+
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Retrieve preference data from session storage
@@ -67,34 +76,45 @@ export default function Location() {
   };
 
   const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocationData(prev => ({ ...prev, location: e.target.value }));
+    const value = e.target.value;
+    setLocationData((prev: LocationFormData) => ({ ...prev, location: value }));
+    if (value.length > 0) {
+      const filtered = CITY_SUGGESTIONS.filter(city =>
+        city.toLowerCase().startsWith(value.toLowerCase()) && city.toLowerCase() !== value.toLowerCase()
+      );
+      setFilteredSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (city: string) => {
+    setLocationData((prev: LocationFormData) => ({ ...prev, location: city }));
+    setShowSuggestions(false);
+    inputRef.current?.blur();
   };
 
   const handleDistanceChange = (value: string) => {
-    setLocationData(prev => ({ ...prev, distance: value }));
+    setLocationData((prev: LocationFormData) => ({ ...prev, distance: value }));
   };
 
   const toggleTransportation = (type: string) => {
-    setLocationData(prev => {
+    setLocationData((prev: LocationFormData) => {
       const types = [...prev.transportation];
       const index = types.indexOf(type);
-      
       if (index >= 0) {
         types.splice(index, 1);
       } else {
         types.push(type);
       }
-      
       return { ...prev, transportation: types };
     });
   };
 
   const selectLocation = (name: string) => {
-    // Update the location input and mark the selected location
-    setLocationData(prev => ({ ...prev, location: name }));
-    
-    // Update the locations array to highlight the selected one
-    setLocations(prev => 
+    setLocationData((prev: LocationFormData) => ({ ...prev, location: name }));
+    setLocations((prev: LocationOption[]) => 
       prev.map(loc => ({
         ...loc,
         selected: loc.name === name
@@ -112,18 +132,34 @@ export default function Location() {
             <h2 className="text-3xl font-heading font-bold mb-6">Where would you like to hang out?</h2>
             <p className="text-gray-700 mb-8">Tell us the city or neighborhood you're interested in exploring.</p>
             
-            <div className="mb-8">
+            <div className="mb-8 relative">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <i className="fas fa-search text-gray-700"></i>
                 </div>
                 <Input 
+                  ref={inputRef}
                   type="text" 
                   placeholder="Enter a city or neighborhood" 
                   className="w-full border border-gray-300 focus:border-primary rounded-xl py-4 pl-12 pr-4 text-lg" 
                   value={locationData.location}
                   onChange={handleLocationChange}
+                  onFocus={() => setShowSuggestions(filteredSuggestions.length > 0)}
+                  autoComplete="off"
                 />
+                {showSuggestions && (
+                  <div className="absolute z-10 left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                    {filteredSuggestions.map(city => (
+                      <div
+                        key={city}
+                        className="px-4 py-2 cursor-pointer hover:bg-primary/10 text-base"
+                        onClick={() => handleSuggestionClick(city)}
+                      >
+                        {city}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             
@@ -205,7 +241,6 @@ export default function Location() {
                 </div>
               </div>
             </div>
-            
             <div className="flex justify-between">
               <Button 
                 variant="outline"

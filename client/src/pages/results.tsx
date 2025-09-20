@@ -1,16 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { ProgressSteps } from "@/components/ui/progress-steps";
-import { ItineraryTimeline } from "@/components/ui/itinerary-timeline";
-import { RecommendationCard } from "@/components/ui/recommendation-card";
-import { useToast } from "@/hooks/use-toast";
-import { ItineraryResponse } from "@/lib/openai";
+import { Button } from "../components/ui/button.jsx";
+import { Card } from "../components/ui/card.jsx";
+import { ProgressSteps } from "../components/ui/progress-steps.jsx";
+import { ItineraryTimeline } from "../components/ui/itinerary-timeline.jsx";
+import { RecommendationCard } from "../components/ui/recommendation-card.jsx";
+import { useToast } from "../hooks/use-toast.ts";
+import { ItineraryResponse } from "../lib/openai.js";
+import { supabase } from "../lib/supabase.js";
+import { useLoginModal } from "../components/layout/header.jsx";
 
 export default function Results() {
   const { toast } = useToast();
+  const openLoginModal = useLoginModal();
   const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
+  const [showMyItineraries, setShowMyItineraries] = useState(false);
+  const [myItineraries, setMyItineraries] = useState<any[]>([]);
+  const [loadingMyItineraries, setLoadingMyItineraries] = useState(false);
+  const myItinerariesFetched = useRef(false);
+  const [selectedItinerary, setSelectedItinerary] = useState<any | null>(null);
 
   useEffect(() => {
     // Retrieve itinerary data from session storage
@@ -34,18 +42,57 @@ export default function Results() {
     window.location.href = "/";
   };
 
-  const handleShare = () => {
-    toast({
-      title: "Share feature",
-      description: "This feature is coming soon!",
-    });
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast({
+        title: "Link copied!",
+        description: "Share this link with your friends.",
+      });
+    } catch {
+      toast({
+        title: "Share failed",
+        description: "Could not copy link.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleSave = () => {
-    toast({
-      title: "Save feature",
-      description: "This feature is coming soon!",
-    });
+  const handleSave = async () => {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) {
+      if (openLoginModal) openLoginModal();
+      return;
+    }
+    try {
+      const res = await fetch("/api/itineraries", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify(itinerary)
+      });
+      if (res.ok) {
+        toast({
+          title: "Itinerary saved!",
+          description: "You can view it in your profile.",
+        });
+      } else {
+        const data = await res.json();
+        toast({
+          title: "Save failed",
+          description: data.message || "Could not save itinerary.",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Save failed",
+        description: "Could not save itinerary.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleCustomize = () => {
@@ -53,6 +100,81 @@ export default function Results() {
       title: "Customize feature",
       description: "This feature is coming soon!",
     });
+  };
+
+  const handleMyItineraries = async () => {
+    setShowMyItineraries(true);
+    if (myItinerariesFetched.current) return;
+    setLoadingMyItineraries(true);
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) {
+      setMyItineraries([]);
+      setLoadingMyItineraries(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/itineraries", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMyItineraries(data.itineraries || []);
+        myItinerariesFetched.current = true;
+      } else {
+        setMyItineraries([]);
+      }
+    } finally {
+      setLoadingMyItineraries(false);
+    }
+  };
+
+  const handleViewItinerary = (iti: any) => {
+    setSelectedItinerary(iti);
+  };
+  const handleCloseDetails = () => {
+    setSelectedItinerary(null);
+  };
+
+  const handleDeleteItinerary = async (iti: any) => {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) {
+      toast({
+        title: "Login required",
+        description: "Please login to delete your itinerary.",
+        variant: "destructive"
+      });
+      return;
+    }
+    try {
+      const res = await fetch(`/api/itineraries/${iti.id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`
+        }
+      });
+      if (res.ok) {
+        setMyItineraries((prev) => prev.filter((item) => item.id !== iti.id));
+        toast({
+          title: "Itinerary deleted!",
+          description: "The itinerary has been removed.",
+        });
+        if (selectedItinerary?.id === iti.id) setSelectedItinerary(null);
+      } else {
+        toast({
+          title: "Delete failed",
+          description: "Could not delete itinerary.",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description: "Could not delete itinerary.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (!itinerary) {
@@ -93,6 +215,13 @@ export default function Results() {
                     onClick={handleSave}
                   >
                     <i className="fas fa-download mr-2"></i> Save
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border border-gray-300 hover:border-primary text-text"
+                    onClick={handleMyItineraries}
+                  >
+                    <i className="fas fa-list mr-2"></i> My Itineraries
                   </Button>
                   <Button 
                     className="bg-primary hover:bg-[#FF6B85] text-white"
@@ -146,6 +275,72 @@ export default function Results() {
           </Button>
         </div>
       </div>
+      {showMyItineraries && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-2xl relative">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={() => setShowMyItineraries(false)}>
+              &times;
+            </button>
+            <h2 className="text-2xl font-bold mb-4 text-center">My Saved Itineraries</h2>
+            {loadingMyItineraries ? (
+              <div className="text-center py-8">Loading...</div>
+            ) : myItineraries.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">No saved itineraries found.</div>
+            ) : (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {myItineraries.map((iti) => (
+                  <div key={iti.id} className="border rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="font-bold text-lg">{iti.title}</div>
+                      <div className="text-gray-600">{iti.location}</div>
+                      <div className="text-xs text-gray-400">{new Date(iti.created_at).toLocaleString()}</div>
+                    </div>
+                    <div className="mt-2 md:mt-0 md:ml-4 flex gap-2">
+                      <Button size="sm" onClick={() => handleViewItinerary(iti)}>
+                        View
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDeleteItinerary(iti)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {selectedItinerary && (
+              <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-60">
+                <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-2xl relative">
+                  <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={handleCloseDetails}>
+                    &times;
+                  </button>
+                  <h3 className="text-xl font-bold mb-2">{selectedItinerary.title}</h3>
+                  <div className="mb-2 text-gray-600">{selectedItinerary.location}</div>
+                  <div className="mb-4 text-xs text-gray-400">{new Date(selectedItinerary.created_at).toLocaleString()}</div>
+                  <div className="mb-4">
+                    <strong>Description:</strong> {selectedItinerary.description}
+                  </div>
+                  <div className="mb-4">
+                    <strong>Activities:</strong>
+                    <ul className="list-disc ml-6">
+                      {selectedItinerary.activities?.map((a: any, idx: number) => (
+                        <li key={idx}>{a.title} - {a.time} - {a.location}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <strong>Recommendations:</strong>
+                    <ul className="list-disc ml-6">
+                      {selectedItinerary.recommendations?.map((r: any, idx: number) => (
+                        <li key={idx}>{r.title}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
